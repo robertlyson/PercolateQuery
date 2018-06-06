@@ -31,7 +31,14 @@ namespace PercolateQuery.IntegrationTests
         public async Task<bool> Match(ShoppingItemUpdated shoppingItemUpdated)
         {
             //TODO: write query to check for registered percolators
-            var searchResponse = await _elasticClient.SearchAsync<ShoppingItemEs>(s => s);
+            var searchResponse = await _elasticClient.SearchAsync<ShoppingItemEs>(s => s
+                .Query(q => q.Percolate(p => p
+                    .Field(f => f.Query)
+                    .Document(new ShoppingItemEs
+                    {
+                        Name = shoppingItemUpdated.Name,
+                        Price = shoppingItemUpdated.Price
+                    }))));
 
             return searchResponse.Documents.Any();
         }
