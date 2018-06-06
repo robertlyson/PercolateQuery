@@ -1,4 +1,6 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.VisualBasic;
@@ -20,10 +22,7 @@ namespace PercolateQuery.IntegrationTests
             elasticClient.DeleteIndex(Strings.IndexName);
 
             //TODO: Create index with proper mapping for percolate qury
-            var createIndexResponse = elasticClient.CreateIndex(Strings.IndexName, i => i
-                .Mappings(map => map.Map<ShoppingItemEs>(m => m
-                    .AutoMap()
-                    .Properties(props => props.Percolator(p => p.Name(n => n.Query))))));
+            var createIndexResponse = elasticClient.CreateIndex(Strings.IndexName, i => i);
 
             var indexDocument = elasticClient.IndexDocument<ShoppingItemEs>(
                 new ShoppingItemEs {Id = "1", Name = "tesla", Price = 100});
@@ -43,58 +42,23 @@ namespace PercolateQuery.IntegrationTests
 
             Assert.AreEqual("6.2.4", version);
         }
-        
+
         [Test]
-        public async Task RegisterPriceAlertQuery()
+        public async Task MappingIsCreatedCorrectly()
         {
-            var elasticClient = _elasticClient;
-            
-            var registered = await new PricesAlert(elasticClient).Register(100, "tesla");
-            registered.ShouldBe(true);
+            var mappingResponse = await _elasticClient.GetMappingAsync<ShoppingItemEs>(m => m);
 
-            var getDocument = await elasticClient.GetAsync<ShoppingItemEs>("document_with_alert");
+            mappingResponse.IsValid.ShouldBe(true);
 
-            var queryVisitor = new DidWeVisitProperQueries { };
-            getDocument.Source.Query.Accept(queryVisitor);
-
-            queryVisitor.NumericRangeQuery.LessThanOrEqualTo.ShouldBe(100);
-            queryVisitor.MatchQuery.Query.ShouldBe("tesla");
+            var indexProperties = IndexProperties(mappingResponse);
+            var queryField = indexProperties["query"];
+            queryField.Type.ShouldBe("percolator");
         }
 
-        [Test]
-        public async Task UpdatingTeslaItemTo90ShouldRiseAlert()
+        private IProperties IndexProperties(IGetMappingResponse mappingResponse)
         {
-            //register alert
-            var registered = await new PricesAlert(_elasticClient).Register(100, "tesla");
-
-            var @event = new ShoppingItemUpdated {Id = 1, Name = "tesla", Price = 90};
-
-            await new UpdateShoppingItemInElasticSearchHandler(_elasticClient).Handle(@event);
-
-            var updatedDocument = await _elasticClient.GetAsync<ShoppingItemEs>(@event.Id.ToString());
-            updatedDocument.Source.Price.ShouldBe(90);
-
-            var alertsFound = await new CheckAlertsHandler(_elasticClient).Handle(@event);
-
-            alertsFound.ShouldBe(true);
-        }
-
-        [Test]
-        public async Task UpdatingTeslaItemTo110ShouldNotRiseAlert()
-        {
-            //register alert
-            var registered = await new PricesAlert(_elasticClient).Register(100, "tesla");
-
-            var @event = new ShoppingItemUpdated { Id = 1, Name = "tesla", Price = 110 };
-
-            await new UpdateShoppingItemInElasticSearchHandler(_elasticClient).Handle(@event);
-
-            var updatedDocument = await _elasticClient.GetAsync<ShoppingItemEs>(@event.Id.ToString());
-            updatedDocument.Source.Price.ShouldBe(110);
-
-            var alertsFound = await new CheckAlertsHandler(_elasticClient).Handle(@event);
-
-            alertsFound.ShouldBe(false);
+            var indexMapping = mappingResponse.Indices.FirstOrDefault();
+            return indexMapping.Value.Mappings.Values.FirstOrDefault().Properties;
         }
     }
 
