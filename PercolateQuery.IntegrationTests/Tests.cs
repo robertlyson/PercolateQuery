@@ -75,6 +75,42 @@ namespace PercolateQuery.IntegrationTests
             queryVisitor.MatchQuery.Query.ShouldBe("tesla");
         }
 
+        [Test]
+        public async Task UpdatingTeslaItemTo90ShouldRiseAlert()
+        {
+            //register alert
+            var registered = await new PricesAlert(_elasticClient).Register(100, "tesla");
+
+            var @event = new ShoppingItemUpdated { Id = 1, Name = "tesla", Price = 90 };
+
+            await new UpdateShoppingItemInElasticSearchHandler(_elasticClient).Handle(@event);
+
+            var updatedDocument = await _elasticClient.GetAsync<ShoppingItemEs>(@event.Id.ToString());
+            updatedDocument.Source.Price.ShouldBe(90);
+
+            var alertsFound = await new CheckAlertsHandler(_elasticClient).Handle(@event);
+
+            alertsFound.ShouldBe(true);
+        }
+
+        [Test]
+        public async Task UpdatingTeslaItemTo110ShouldNotRiseAlert()
+        {
+            //register alert
+            var registered = await new PricesAlert(_elasticClient).Register(100, "tesla");
+
+            var @event = new ShoppingItemUpdated { Id = 1, Name = "tesla", Price = 110 };
+
+            await new UpdateShoppingItemInElasticSearchHandler(_elasticClient).Handle(@event);
+
+            var updatedDocument = await _elasticClient.GetAsync<ShoppingItemEs>(@event.Id.ToString());
+            updatedDocument.Source.Price.ShouldBe(110);
+
+            var alertsFound = await new CheckAlertsHandler(_elasticClient).Handle(@event);
+
+            alertsFound.ShouldBe(false);
+        }
+
         private IProperties IndexProperties(IGetMappingResponse mappingResponse)
         {
             var indexMapping = mappingResponse.Indices.FirstOrDefault();
