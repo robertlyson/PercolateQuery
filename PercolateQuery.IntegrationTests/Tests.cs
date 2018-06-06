@@ -58,6 +58,23 @@ namespace PercolateQuery.IntegrationTests
             queryField.Type.ShouldBe("percolator");
         }
 
+        [Test]
+        public async Task RegisterPriceAlertQuery()
+        {
+            var elasticClient = _elasticClient;
+
+            var registered = await new PricesAlert(elasticClient).Register(100, "tesla");
+            registered.ShouldBe(true);
+
+            var getDocument = await elasticClient.GetAsync<ShoppingItemEs>("document_with_alert");
+
+            var queryVisitor = new DidWeVisitProperQueries { };
+            getDocument.Source.Query.Accept(queryVisitor);
+
+            queryVisitor.NumericRangeQuery.LessThanOrEqualTo.ShouldBe(100);
+            queryVisitor.MatchQuery.Query.ShouldBe("tesla");
+        }
+
         private IProperties IndexProperties(IGetMappingResponse mappingResponse)
         {
             var indexMapping = mappingResponse.Indices.FirstOrDefault();
