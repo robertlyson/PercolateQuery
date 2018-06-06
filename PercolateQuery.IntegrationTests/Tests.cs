@@ -22,7 +22,10 @@ namespace PercolateQuery.IntegrationTests
             elasticClient.DeleteIndex(Strings.IndexName);
 
             //TODO: Create index with proper mapping for percolate qury
-            var createIndexResponse = elasticClient.CreateIndex(Strings.IndexName, i => i);
+            var createIndexResponse = elasticClient.CreateIndex(Strings.IndexName, i => i
+                .Mappings(map => map.Map<ShoppingItemEs>(m => m
+                    .AutoMap()
+                    .Properties(props => props.Percolator(p => p.Name(n => n.Query))))));
 
             var indexDocument = elasticClient.IndexDocument<ShoppingItemEs>(
                 new ShoppingItemEs {Id = "1", Name = "tesla", Price = 100});
