@@ -15,7 +15,7 @@ namespace PercolateQuery.IntegrationTests
 
         public async Task<bool> Register(double price, string itemName)
         {
-            //TODO: create query matching:
+            //TODO: create query matching price and itemName:
             var query = new QueryContainerDescriptor<ShoppingItemEs>();
             var indexResponse = await _elasticClient
                 .IndexDocumentAsync(new ShoppingItemEs { Id = "document_with_alert", Query = query });
