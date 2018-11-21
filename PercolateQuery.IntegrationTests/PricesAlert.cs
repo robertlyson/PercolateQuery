@@ -15,7 +15,7 @@ namespace PercolateQuery.IntegrationTests
 
         public async Task<bool> Register(double price, string itemName)
         {
-            //TODO: create query matching:
+            //TODO: create query matching price and itemName:
             var query = new QueryContainerDescriptor<ShoppingItemEs>()
                 .Bool(b => b
                     .Must(
